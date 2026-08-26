@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: climate-ai-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: climate-ai-platform}
+  template:
+    metadata:
+      labels: {app: climate-ai-platform}
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/example/climate-ai-platform:latest
+          ports: [{containerPort: 8000}]
+          envFrom: [{secretRef: {name: climate-ai-secrets}}]
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+          resources:
+            requests: {cpu: 200m, memory: 256Mi}
+            limits: {cpu: "1", memory: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: climate-ai-platform
+spec:
+  selector: {app: climate-ai-platform}
+  ports: [{port: 80, targetPort: 8000}]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: climate-ai-platform
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: climate-ai-platform}
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 65}
+
